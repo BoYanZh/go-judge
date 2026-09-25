@@ -249,7 +249,7 @@ func initGRPCServer(conf *config.Config, work worker.Worker, fs filestore.FileSt
 			return nil, nil
 		}
 		// Init gRPC server
-		esServer := grpcexecutor.New(work, fs, conf.SrcPrefix, logger)
+		esServer := grpcexecutor.New(work, fs, conf.SrcPrefix, *conf.FileUploadLimit, logger)
 		grpcServer := newGRPCServer(conf, esServer)
 
 		return func() {

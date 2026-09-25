@@ -19,21 +19,23 @@ import (
 )
 
 // New creates grpc executor server
-func New(worker worker.Worker, fs filestore.FileStore, srcPrefix []string, logger *zap.Logger) pb.ExecutorServer {
+func New(worker worker.Worker, fs filestore.FileStore, srcPrefix []string, fileUploadLimit envexec.Size, logger *zap.Logger) pb.ExecutorServer {
 	return &execServer{
-		worker:    worker,
-		fs:        fs,
-		srcPrefix: srcPrefix,
-		logger:    logger,
+		worker:          worker,
+		fs:              fs,
+		srcPrefix:       srcPrefix,
+		fileUploadLimit: fileUploadLimit,
+		logger:          logger,
 	}
 }
 
 type execServer struct {
 	pb.UnimplementedExecutorServer
-	worker    worker.Worker
-	fs        filestore.FileStore
-	srcPrefix []string
-	logger    *zap.Logger
+	worker          worker.Worker
+	fs              filestore.FileStore
+	srcPrefix       []string
+	fileUploadLimit envexec.Size
+	logger          *zap.Logger
 }
 
 func (e *execServer) Exec(ctx context.Context, req *pb.Request) (*pb.Response, error) {

@@ -24,8 +24,9 @@ type Config struct {
 	NoFallback         bool   `flagUsage:"exit if fallback to rlimit / rusage mode"`
 
 	// file store
-	SrcPrefix []string `flagUsage:"specifies directory prefix for source type copyin (example: -src-prefix=/home,/usr)"`
-	Dir       string   `flagUsage:"specifies directory to store file upload / download (in memory by default)"`
+	SrcPrefix       []string      `flagUsage:"specifies directory prefix for source type copyin (example: -src-prefix=/home,/usr)"`
+	Dir             string        `flagUsage:"specifies directory to store file upload / download (in memory by default)"`
+	FileUploadLimit *envexec.Size `flagUsage:"specifies max size for a streamed file upload" default:"256m"`
 
 	// runner limit
 	TimeLimitCheckerInterval time.Duration `flagUsage:"specifies time limit checker interval" default:"100ms"`
