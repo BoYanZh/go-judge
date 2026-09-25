@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 	"os"
 	"testing"
 
@@ -12,7 +13,9 @@ import (
 	"github.com/criyle/go-judge/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/test/bufconn"
 )
 
 type fileAddStreamStub struct {
@@ -93,6 +96,71 @@ func TestFileAddStream(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got, want := string(content), "hello world!"; got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
+func TestFileAddStreamGRPCRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	fs := filestore.NewFileLocalStore(dir)
+	listener := bufconn.Listen(1 << 20)
+	grpcServer := grpc.NewServer()
+	pb.RegisterExecutorServer(grpcServer, &execServer{fs: fs, fileUploadLimit: 1 << 20})
+	go func() {
+		_ = grpcServer.Serve(listener)
+	}()
+	t.Cleanup(func() {
+		grpcServer.Stop()
+		_ = listener.Close()
+	})
+
+	conn, err := grpc.NewClient(
+		"passthrough:///bufnet",
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+			return listener.Dial()
+		}),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+
+	stream, err := pb.NewExecutorClient(conn).FileAddStream(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.Send(pb.FileContent_builder{Name: "artifact.bin", Content: []byte("hello ")}.Build()); err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.Send(pb.FileContent_builder{Content: []byte("world")}.Build()); err != nil {
+		t.Fatal(err)
+	}
+	fid, err := stream.CloseAndRecv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fid.GetFileID() == "" {
+		t.Fatal("expected a file ID")
+	}
+
+	name, file := fs.Get(fid.GetFileID())
+	if file == nil {
+		t.Fatal("uploaded file not found in store")
+	}
+	if name != "artifact.bin" {
+		t.Fatalf("expected artifact.bin, got %q", name)
+	}
+	r, err := envexec.FileToReader(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	content, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := string(content), "hello world"; got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}
 }

@@ -2,6 +2,8 @@ module github.com/criyle/go-judge
 
 go 1.26.0
 
+replace github.com/criyle/go-judge/pb => ./pb
+
 require (
 	github.com/coreos/go-systemd/v22 v22.7.0
 	github.com/creack/pty v1.1.24
